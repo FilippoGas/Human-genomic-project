@@ -73,10 +73,6 @@ Doing so filtered out 23,11% of control reads (from 19.720.171 to 15.161.625) an
 
 Filtered bam files were re-indexed.
 
-### **Duplicate removal**
-
->Can we trust samtools saying 0 duplicates and don't do duplicate removal?
-
 ### **Realignment around indels**
 
 Realignment around indels was done with GATK using *human g1k v37* as reference genome and a list of high confidence SNPs in *.vcf* format from [the Broad Institute public data repository](https://console.cloud.google.com/storage/browser/gcp-public-data--broad-references/hg19/v0).
@@ -116,5 +112,45 @@ java -jar ../../tools/GenomeAnalysisTK.jar -T IndelRealigner
 ```
 
 GATK realigned 8305 reads (~5%) in the control bam and 6651 (~6%) in the tumor bam.
+
+### **Duplicate removal**
+
+Duplicate removal was conducted with samtools.
+
+As first step, the bam files are sorted by read name (needed by samtools fixmate)
+
+```bash
+samtools sort -n ../realigned_filtered_sorted_indexed_bam/realigned_filtered_control_sorted.bam -o nsorted_realigned_filtered_control_sorted.bam
+
+samtools sort -n ../realigned_filtered_sorted_indexed_bam/realigned_filtered_tumor_sorted.bam -o nsorted_realigned_filtered_tumor_sorted.bam
+```
+
+Add mate tags when not present
+
+```bash
+samtools fixmate -m nsorted_realigned_filtered_control_sorted.bam fixed_realigned_filtered_control_sorted.bam
+
+samtools fixmate -m nsorted_realigned_filtered_tumor_sorted.bam fixed_realigned_filtered_tumor_sorted.bam
+```
+
+Now we can re-sort the bam by coordinates and run the actual duplicate removal,
+
+re-sorting:
+
+```bash
+samtools sort fixed_realigned_filtered_control_sorted.bam > fixed_realigned_filtered_control_re-sorted.bam
+
+samtools sort fixed_realigned_filtered_tumor_sorted.bam > fixed_realigned_filtered_tumor_re-sorted.bam
+```
+
+duplicate removal:
+
+```
+samtools markdup -sr fixed_realigned_filtered_control_re-sorted.bam dedup_realigned_filtered_control.bam
+
+samtools markdup -sr fixed_realigned_filtered_tumor_re-sorted.bam dedup_realigned_filtered_tumor.bam
+```
+
+This removed 2.074.733 duplicate reads in the control bam (~14%) leading to a total of 13.086.892 control, and 1.379.650 duplicate reads in the tumor bam (~12%) leading to a total of 10.276.889 tumor reads.
 
 ### **Base quality score recalibration**
