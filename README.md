@@ -135,7 +135,7 @@ samtools fixmate -m nsorted_realigned_filtered_tumor_sorted.bam fixed_realigned_
 
 Now we can re-sort the bam by coordinates and run the actual duplicate removal,
 
-re-sorting:
+re-sorting :
 
 ```bash
 samtools sort fixed_realigned_filtered_control_sorted.bam > fixed_realigned_filtered_control_re-sorted.bam
@@ -143,7 +143,7 @@ samtools sort fixed_realigned_filtered_control_sorted.bam > fixed_realigned_filt
 samtools sort fixed_realigned_filtered_tumor_sorted.bam > fixed_realigned_filtered_tumor_re-sorted.bam
 ```
 
-duplicate removal:
+duplicate removal :
 
 ```
 samtools markdup -sr fixed_realigned_filtered_control_re-sorted.bam dedup_realigned_filtered_control.bam
@@ -152,5 +152,14 @@ samtools markdup -sr fixed_realigned_filtered_tumor_re-sorted.bam dedup_realigne
 ```
 
 This removed 2.074.733 duplicate reads in the control bam (~14%) leading to a total of 13.086.892 control, and 1.379.650 duplicate reads in the tumor bam (~12%) leading to a total of 10.276.889 tumor reads.
+
+To compare the results, duplicate removal was also done using picard :
+
+```
+java -jar ../../tools/picard.jar MarkDuplicates I= ../realigned_filtered_sorted_indexed_bam/realigned_filtered_control_sorted.bam O=dedup_picard_realigned_filtered_control.bam REMOVE_DUPLICATES=true TMP_DIR=/tmp METRICS_FILE=control_picard.log ASSUME_SORTED=true
+
+java -jar ../../tools/picard.jar MarkDuplicates I= ../realigned_filtered_sorted_indexed_bam/realigned_filtered_tumor_sorted.bam O=dedup_picard_realigned_filtered_tumor.bam REMOVE_DUPLICATES=true TMP_DIR=/tmp METRICS_FILE=tumor_picard.log ASSUME_SORTED=true
+```
+Similarly to samtools, Picard removed 2.070.030 (~13%) duplicate reads from the control bam and 1.376.758 (~12%) from the tumor bam
 
 ### **Base quality score recalibration**
