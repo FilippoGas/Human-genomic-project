@@ -326,5 +326,66 @@ ethseq.Analysis(
 
 ![results](./Screenshot_20230620_162143.png)
 
-The results suggest that our patient is european.
+![results](./2D_Screenshot_20230620_163958.png)
 
+EUR	CLOSEST	EUR(25.1%)|EAS(25.01%)|AFR(24.97%)|SAS(24.92%)
+
+The results of the PCA are quite ambiguous, the number of SNPs and samples used could have affected results.
+
+## Somatic variant calling
+
+To call somatic variants we'll rum a pileup on our pre-processed *.bam* files to later identify somatic events with VarScan
+
+```bash
+samtools mpileup -q 1 -f ../annotations/human_g1k_v37.fasta ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_control.bam > control.pileup
+
+samtools mpileup -q 1 -f ../annotations/human_g1k_v37.fasta ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_tumor.bam > tumor.pileup
+```
+
+once the pileup is performed the *.pileup* files can be fed to VarScan, using as thresholds for heterozigosis and homozigosis 0.2 and 0.8
+
+```bash
+java -jar ../../tools/VarScan.v2.3.9.jar somatic control.pileup tumor.pileup --output-snp somatic.pm --output-indel somatic.indel --output-vcf 1 --min-var-freq 0.2 --min-freq-for-hom 0.8
+```
+
+as we can see from the results 
+
+```
+89758156 positions in tumor
+89554858 positions shared in normal
+17619950 had sufficient coverage for comparison
+17595037 were called Reference
+0 were mixed SNP-indel calls and filtered
+21278 were called Germline
+3223 were called LOH
+325 were called Somatic
+87 were called Unknown
+0 were called Variant
+```
+
+VarScan has found 325 variants that were called somatic but when retrieving them from the *.vcf* file (INFO SS=2) only 242 are retrieved
+
+``` bash
+cat somatic.pm.vcf | java -jar ../../tools/snpEff/SnpSift.jar filter "( SS = '2' )" > somatic_variants.vcf
+
+bcftools stats somatic_variants.vcf
+
+# SN    [2]id   [3]key  [4]value
+SN      0       number of samples:      2
+SN      0       number of records:      242
+SN      0       number of no-ALTs:      0
+SN      0       number of SNPs: 242
+SN      0       number of MNPs: 0
+SN      0       number of indels:       0
+SN      0       number of others:       0
+SN      0       number of multiallelic sites:   0
+SN      0       number of multiallelic SNP sites:       0
+```
+
+also grepping lines containing "SS=2" return the same result
+
+```bash
+cat somatic_variants.vcf | grep "SS=2" | wc -l
+
+242
+```
