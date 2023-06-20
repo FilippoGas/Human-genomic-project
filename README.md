@@ -160,7 +160,7 @@ java -jar ../../tools/picard.jar MarkDuplicates I= ../realigned_filtered_sorted_
 ```
 Similarly to samtools, Picard removed 2.070.030 (~13%) duplicate reads from the control bam and 1.376.758 (~12%) from the tumor bam.
 
-Downstream analysis will be applied on the GATK deduplicated version.
+Downstream analysis will be applied on the samtools deduplicated version.
 
 ### **Base quality score recalibration**
 
@@ -213,4 +213,37 @@ java -jar ../../tools/GenomeAnalysisTK.jar -T BaseRecalibrator
 -o after_tumor_recal_table
 ```
 
-This second pass evaluates remaining errors and is used to create the comparison
+Now we can use the *AnalyzeCovariates* tool to plot the differences in the base qualities before and after recalibration
+
+```bash
+java -jar ../../tools/GenomeAnalysisTK.jar -T AnalyzeCovariates
+-R ../annotations/human_g1k_v37.fasta
+-before control_recal_table
+-after after_control_recal_table
+-plots control_recal_plots.pdf
+-l DEBUG
+-csv control_report.csv
+
+java -jar ../../tools/GenomeAnalysisTK.jar -T AnalyzeCovariates
+-R ../annotations/human_g1k_v37.fasta
+-before tumor_recal_table
+-after after_tumor_recal_table
+-plots tumor_recal_plots.pdf
+-l DEBUG
+-csv tumor_report.csv
+```
+## Variant calling
+
+The variant calling process aims at characterizing the genotype of the samples and identify variants 
+
+```bash
+java -jar ../../tools/GenomeAnalysisTK.jar -T UnifiedGenotyper
+-R ../annotations/human_g1k_v37.fasta
+-I ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_control.bam
+-o control_GATK.vcf
+
+java -jar ../../tools/GenomeAnalysisTK.jar -T UnifiedGenotyper
+-R ../annotations/human_g1k_v37.fasta
+-I ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_tumor.bam
+-o tumor_GATK.vcf
+```
