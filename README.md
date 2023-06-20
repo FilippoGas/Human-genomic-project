@@ -324,13 +324,13 @@ ethseq.Analysis(
   space="3D")
 ```
 
-![results](./Screenshot_20230620_162143.png)
+![results](./2D.png)
 
-![results](./2D_Screenshot_20230620_163958.png)
+![results](./3D.png)
 
-EUR	CLOSEST	EUR(25.1%)|EAS(25.01%)|AFR(24.97%)|SAS(24.92%)
+AFR	CLOSEST	EUR(20.05%)|EAS(19.35%)|SAS(17.99%)|AFR(42.61%)
 
-The results of the PCA are quite ambiguous, the number of SNPs and samples used could have affected results.
+The results of the PCA suggest that the patient could be of African ethnicity.
 
 ## Somatic variant calling
 
@@ -388,4 +388,19 @@ also grepping lines containing "SS=2" return the same result
 cat somatic_variants.vcf | grep "SS=2" | wc -l
 
 242
+```
+## Somatic variant annotation
+
+Now that somatic variants have been identified we can annotate them and generate an *.html* summary for web view
+
+```bash
+java -Xmx4g -jar ../../tools/snpEff/snpEff.jar -v hg19kg ../somatic_variant_calling/somatic_variants.vcf -s somatic_variant_ann.html > somatic_variant_ann.vcf
+```
+
+## Somatic copy number variation
+
+To detect CNVs we need to generate a pileup of the regions of interest as indicated in the *.bed* files
+
+```bash
+
 ```
