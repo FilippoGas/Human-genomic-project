@@ -385,7 +385,7 @@ SN      0       number of multiallelic SNP sites:       0
 also grepping lines containing "SS=2" return the same result
 
 ```bash
-cat somatic_variants.vcf | grep "SS=2" | wc -l
+cat somatic.pm.vcf | grep "SS=2" | wc -l
 
 242
 ```
@@ -399,8 +399,26 @@ java -Xmx4g -jar ../../tools/snpEff/snpEff.jar -v hg19kg ../somatic_variant_call
 
 ## Somatic copy number variation
 
-To detect CNVs we need to generate a pileup of the regions of interest as indicated in the *.bed* files
+To detect CNVs we need to generate a pileup of the regions of interest as indicated in the *.bed* files and feed them as imput to varscan-copynumber
 
 ```bash
+samtools mpileup -q 1 -f ../annotations/human_g1k_v37.fasta ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_control.bam ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_tumor.bam -l DNA_Repair_Genes.bed | java -jar ../../tools/VarScan.v2.3.9.jar copynumber --output-file SCNA --mpileup 1
 
+samtools mpileup -q 1 -f ../annotations/human_g1k_v37.fasta ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_control.bam ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_tumor.bam -l Captured_Regions.bed | java -jar ../../tools/VarScan.v2.3.9.jar copynumber --output-file SCNA --mpileup 1
 ```
+
+use the copy number optained from varscan copynumber to find copy number variants
+
+```bash
+java -jar ../../tools/VarScan.v2.3.9.jar copyCaller SCNA_copynumber_captured_regions --output-file SCNA_copynumber_captured_regions_called
+
+java -jar ../../tools/VarScan.v2.3.9.jar copyCaller SCNA_copynumber_DNA_repair --output-file SCNA_copynumber_DNA_repair_called
+```
+
+segmentation for DNA repair genes
+![seg_DNA_repair](./seg_DNA_repair.png)
+
+segmentation for captured regions
+![seg_DNA_repair](./seg_captured_regions.png)
+
+## Tumor purity and ploidy
