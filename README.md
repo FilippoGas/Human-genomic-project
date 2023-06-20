@@ -247,3 +247,84 @@ java -jar ../../tools/GenomeAnalysisTK.jar -T UnifiedGenotyper
 -I ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_tumor.bam
 -o tumor_GATK.vcf
 ```
+
+once the two *.vcf* files are generated we can filter them with vcftools in order to keep only high quality calls
+
+```bash
+vcftools --minQ 20 --max-meanDP 100 --min-meanDP 5 --remove-indels --vcf control_GATK.vcf --out control_GATK_filtered_calls --recode --recode-INFO-all
+
+vcftools --minQ 20 --max-meanDP 100 --min-meanDP 5 --remove-indels --vcf tumor_GATK.vcf --out tumor_GATK_filtered_calls --recode --recode-INFO-all
+```
+
+the filtering kept 34397 out of 152088 possible sites in the control and 31645 out of possible 152502 sites.
+
+## Variant annotation
+
+To link variants to specific genotypes we need to annotate our *.vcf* files.
+
+In order to do this we'll use SnpEff and SnpSift.
+
+SnpEff will output a annotated *.vcf* file and a *html* file with a summary of the annotation
+
+```bash
+java -Xmx2g -jar ../../tools/snpEff/snpEff.jar -v hg19kg ../variant_calling/control_GATK_filtered_calls.recode.vcf -s control.html > control_snpeff_ann.vcf
+
+java -Xmx2g -jar ../../tools/snpEff/snpEff.jar -v hg19kg ../variant_calling/tumor_GATK_filtered_calls.recode.vcf -s tumor.html > tumor_snpeff_ann.vcf
+```
+
+with the output from SnpEff we can run another round of annotation with SnpSift to get more detail and accurate annotations about cancer from specific databases like Clinvar and HapMap.
+
+HapMap:
+
+```bash
+java -Xmx4g -jar ../../tools/snpEff/SnpSift.jar Annotate ../annotations/hapmap_3.3.b37.vcf  control_snpeff_ann.vcf > control_ann_hapmap.vcf
+
+java -Xmx4g -jar ../../tools/snpEff/SnpSift.jar Annotate ../annotations/hapmap_3.3.b37.vcf  tumor_snpeff_ann.vcf > tumor_ann_hapmap.vcf
+```
+
+ClinVar:
+
+```bash
+java -Xmx4g -jar ../../tools/snpEff/SnpSift.jar Annotate ../annotations/clinvar_Pathogenic.vcf  control_ann_hapmap.vcf > control_ann_hapmap_clinvar.vcf
+
+java -Xmx4g -jar ../../tools/snpEff/SnpSift.jar Annotate ../annotations/clinvar_Pathogenic.vcf  tumor_ann_hapmap.vcf > tumor_ann_hapmap_clinvar.vcf
+```
+Annotations can now be filtered to only retrieve annotation calls that have a high impact and quality over 20
+
+```bash
+cat control_ann_hapmap_clinvar.vcf | java -jar ../../tools/snpEff/SnpSift.jar filter " ( QUAL >= 20 ) & ( ANN[ANY].IMPACT = 'HIGH')" > control_ann_filtered.vcf
+
+cat tumor_ann_hapmap_clinvar.vcf | java -jar ../../tools/snpEff/SnpSift.jar filter " ( QUAL >= 20 ) & ( ANN[ANY].IMPACT = 'HIGH')" > tumor_ann_filtered.vcf
+```
+This retain 43 SNPs for both control and tumor samples.
+
+## Ancestry analysis
+
+Ancestry analysis are performed using EthSeq, a tool for ethnicity annotation
+
+```R
+library(EthSEQ)
+
+ethseq.Analysis(
+  target.vcf = "../variant_annotation/control_ann_hapmap_clinvar.vcf",
+  out.dir = "./control/",
+  model.gds = "./ReferenceModel.gds",
+  cores=1,
+  verbose=TRUE,
+  composite.model.call.rate = 0.99,
+  space="3D")
+
+ethseq.Analysis(
+  target.vcf = "../variant_annotation/tumor_ann_hapmap_clinvar.vcf",
+  out.dir = "./tumor/",
+  model.gds = "./ReferenceModel.gds",
+  cores=1,
+  verbose=TRUE,
+  composite.model.call.rate = 0.99,
+  space="3D")
+```
+
+![results](./Screenshot_20230620_162143.png)
+
+The results suggest that our patient is european.
+
