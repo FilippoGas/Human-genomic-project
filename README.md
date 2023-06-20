@@ -65,8 +65,6 @@ Both *control.sorted.bam* and *tumor.sorted.bam* have been filtered with samtool
 
 ```bash
 samtools view -q 30 -F 512 -f 2 -b control.sorted.bam > ../filtered_sorted_indexed_bam/filtered.control.sorted.bam
-
-
 ```
 
 Doing so filtered out 23,11% of control reads (from 19.720.171 to 15.161.625) and 22.49% of tumor reads (from 15.039.503 to 11.656.539)
@@ -75,7 +73,7 @@ Filtered bam files were re-indexed.
 
 ### **Realignment around indels**
 
-Realignment around indels was done with GATK using *human g1k v37* as reference genome and a list of high confidence SNPs in *.vcf* format from [the Broad Institute public data repository](https://console.cloud.google.com/storage/browser/gcp-public-data--broad-references/hg19/v0).
+Realignment around indels was done with GATK using *human g1k v37* as reference genome and a list of known indels in *.vcf* format.
 
 First the two *.intervarls* files are generated :
 
@@ -111,7 +109,7 @@ java -jar ../../tools/GenomeAnalysisTK.jar -T IndelRealigner
 -o realigned_filtered_tumor_sorted.bam
 ```
 
-GATK realigned 8305 reads (~5%) in the control bam and 6651 (~6%) in the tumor bam.
+GATK realigned 8308 reads (~5%) in the control bam and 6655 (~6%) in the tumor bam.
 
 ### **Duplicate removal**
 
@@ -160,6 +158,59 @@ java -jar ../../tools/picard.jar MarkDuplicates I= ../realigned_filtered_sorted_
 
 java -jar ../../tools/picard.jar MarkDuplicates I= ../realigned_filtered_sorted_indexed_bam/realigned_filtered_tumor_sorted.bam O=dedup_picard_realigned_filtered_tumor.bam REMOVE_DUPLICATES=true TMP_DIR=/tmp METRICS_FILE=tumor_picard.log ASSUME_SORTED=true
 ```
-Similarly to samtools, Picard removed 2.070.030 (~13%) duplicate reads from the control bam and 1.376.758 (~12%) from the tumor bam
+Similarly to samtools, Picard removed 2.070.030 (~13%) duplicate reads from the control bam and 1.376.758 (~12%) from the tumor bam.
+
+Downstream analysis will be applied on the GATK deduplicated version.
 
 ### **Base quality score recalibration**
+
+BQSR was done with GATK, first of all let's build the recalibration model using a list of high confidence known SNPs from [the Broad Institute public repository](https://console.cloud.google.com/storage/browser/gcp-public-data--broad-references/hg19/v0):
+
+```
+java -jar ../../tools/GenomeAnalysisTK.jar -T BaseRecalibrator
+-R ../annotations/human_g1k_v37.fasta
+-I ../dedup_realigned_sorted_indexed_bam/dedup_realigned_filtered_control.bam
+-knownSites ../annotations/hg19_v0_1000G_phase1.snps.high_confidence.b37.vcf
+-o control_recal_table
+
+java -jar ../../tools/GenomeAnalysisTK.jar -T BaseRecalibrator
+-R ../annotations/human_g1k_v37.fasta
+-I ../dedup_realigned_sorted_indexed_bam/dedup_realigned_tumor.bam
+-knownSites ../annotations/hg19_v0_1000G_phase1.snps.high_confidence.b37.vcf
+-o tumor_recal_table
+```
+
+Once the recalibration tables are computed, the actual recalibration can be done : 
+
+```
+java -jar ../../tools/GenomeAnalysisTK.jar -T PrintReads -R ../annotations/human_g1k_v37.fasta
+-I ../dedup_realigned_sorted_indexed_bam/dedup_realigned_control.bam
+-BQSR control_recal_table
+-o recal_dedup_real_filt_control.bam
+
+java -jar ../../tools/GenomeAnalysisTK.jar -T PrintReads
+-R ../annotations/human_g1k_v37.fasta
+-I ../dedup_realigned_sorted_indexed_bam/dedup_realigned_tumor.bam
+-BQSR tumor_recal_table
+-o recal_dedup_real_filt_tumor.bam
+```
+
+Let's now recompute the recalibration table both for tumor and control in order to plot the before-after comparison
+
+```bash
+java -jar ../../tools/GenomeAnalysisTK.jar -T BaseRecalibrator
+-R ../annotations/human_g1k_v37.fasta
+-I recal_dedup_real_filt_control.bam
+-knownSites ../annotations/hapmap_3.3.b37.vcf
+-BQSR control_recal_table
+-o after_control_recal_table
+
+java -jar ../../tools/GenomeAnalysisTK.jar -T BaseRecalibrator
+-R ../annotations/human_g1k_v37.fasta
+-I recal_dedup_real_filt_tumor.bam
+-knownSites ../annotations/hapmap_3.3.b37.vcf
+-BQSR tumor_recal_table
+-o after_tumor_recal_table
+```
+
+This second pass evaluates remaining errors and is used to create the comparison
