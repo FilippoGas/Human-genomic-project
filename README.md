@@ -452,3 +452,6 @@ These files can now be analyzed with Clonet and TPES
 
 ![AF](./captured_regions_AF.png)
 
+## Conclusions
+
+The segmentation plots from Clonet highlight clear losses in the regions covered by the bed file provided for the project, containing many genes involved in DNA repair. The log2R-beta plot is consistent with the segmentation, showing mostly deletion events instead of duplications. The small cluster between the homozygous loss and the heterozygous without CNVs could be hinting at a subclonal population. As is evident in the distribution function plots,  there exists a subclonal peak, characterized by a larger allelic fraction.
