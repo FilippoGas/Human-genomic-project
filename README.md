@@ -416,9 +416,39 @@ java -jar ../../tools/VarScan.v2.3.9.jar copyCaller SCNA_copynumber_DNA_repair -
 ```
 
 segmentation for DNA repair genes
+
 ![seg_DNA_repair](./seg_DNA_repair.png)
 
+
 segmentation for captured regions
+
 ![seg_DNA_repair](./seg_captured_regions.png)
 
 ## Tumor purity and ploidy
+
+The first step is to identify heterozygous SNPs
+
+```bash
+bcftools mpileup -Ou -a DP -f ../annotations/human_g1k_v37.fasta ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_control.bam | bcftools call -Ov -c -v > control.vcf
+
+bcftools mpileup -Ou -a DP -f ../annotations/human_g1k_v37.fasta ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_tumor.bam | bcftools call -Ov -c -v > tumor.vcf
+
+grep -E "(^#|0/1)" control.vcf > control_het.vcf
+
+grep -E "(^#|0/1)" tumor.vcf > tumor_het.vcf
+```
+Let's compute read count per allele on the heterozygous SNPs, but only after removing indels from the *.vcf* file in order to avoid errors regarding multiple variants on the same position
+
+```bash
+vcftools --vcf control_het.vcf --out control_het_no_indels --remove-indels --recode --recode-INFO-all
+
+java -jar ../../tools/GenomeAnalysisTK.jar -T ASEReadCounter -R ../annotations/human_g1k_v37.fasta -o control.csv -I ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_control.bam -sites control_het_no_indels.recode.vcf -U ALLOW_N_CIGAR_READS -minDepth 20 --minMappingQuality 20 --minBaseQuality 20
+
+java -jar ../../tools/GenomeAnalysisTK.jar -T ASEReadCounter -R ../annotations/human_g1k_v37.fasta -o tumor.csv -I ../recal_dedup_realigned_sorted_indexed_bam/recal_dedup_real_filt_tumor.bam -sites control_het_no_indels.recode.vcf -U ALLOW_N_CIGAR_READS -minDepth 20 --minMappingQuality 20 --minBaseQuality 20
+```
+These files can now be analyzed with Clonet and TPES
+
+![ploidy](./captured_regions_log2r_beta.png)
+
+![AF](./captured_regions_AF.png)
+
